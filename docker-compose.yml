@@ -1,0 +1,14 @@
+services:
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: edtech-frontend
+    container_name: edtech-frontend
+    ports:
+      - "3000:3000"
+    restart: unless-stopped
+    environment:
+      - NODE_ENV=production
+    user: "1001:1001"
+    # Ajoute ici d'autres variables d'env si besoin 
