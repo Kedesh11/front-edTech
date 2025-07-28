@@ -4,6 +4,10 @@ import { ProtectedRoute } from '@/components/layout/ProtectedRoute';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/Card';
 import { useAuth } from '@/contexts/AuthContext';
+import { TrainingStats } from '../components/TrainingStats';
+import { RecentAnnouncements } from '../components/RecentAnnouncements';
+import { WorkGroupStats } from '../components/WorkGroupStats';
+import { AIAssistantStats } from '../components/AIAssistantStats';
 
 export default function StudentDashboard() {
   const { user } = useAuth();
@@ -199,6 +203,21 @@ export default function StudentDashboard() {
             </Card>
           </div>
         </div>
+
+                              {/* Additional Sections */}
+                      <div className="grid grid-cols-1 xl:grid-cols-4 gap-8 mt-8">
+                        {/* Training Stats */}
+                        <TrainingStats studentId={user?.id || ''} />
+                        
+                        {/* Recent Announcements */}
+                        <RecentAnnouncements />
+
+                        {/* Work Group Stats */}
+                        <WorkGroupStats studentId={user?.id || ''} />
+
+                        {/* AI Assistant Stats */}
+                        <AIAssistantStats studentId={user?.id || ''} />
+                      </div>
       </DashboardLayout>
     </ProtectedRoute>
   );

@@ -1,63 +1,36 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
-import { Teacher } from '@/mock/types';
 import { ProtectedRoute } from '@/components/layout/ProtectedRoute';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { useAuth } from '@/contexts/AuthContext';
-import { PlotlyChart } from '@/components/shared/PlotlyChart';
+import { Teacher } from '@/types/user';
+import { 
+  getTeacherCourses, 
+  getTeacherAssignments, 
+  mockTeacherStatistics,
+  getTodayClasses,
+  getPendingAssignments
+} from '@/data/mock-teacher';
 
 export default function TeacherDashboard() {
   const { user } = useAuth();
+  const teacher = user as Teacher;
+  const [courses, setCourses] = useState<any[]>([]);
+  const [assignments, setAssignments] = useState<any[]>([]);
+  const [todayClasses, setTodayClasses] = useState<any[]>([]);
+  const [pendingAssignments, setPendingAssignments] = useState<any[]>([]);
 
-  // Données fictives pour les graphiques
-  const moyennesData = [{
-    x: ['1ère A', '1ère B', 'Term A', 'Term B'],
-    y: [15.2, 13.8, 14.5, 12.9],
-    type: 'bar' as const,
-    marker: { color: ['#2563eb', '#f59e42', '#10b981', '#f43f5e'] },
-  }];
-  const moyennesLayout = {
-    title: { text: 'Moyenne par classe' },
-    height: 320,
-    margin: { t: 40, l: 40, r: 10, b: 40 },
-    paper_bgcolor: 'transparent',
-    plot_bgcolor: 'transparent',
-  };
+  useEffect(() => {
+    if (teacher?.id) {
+      setCourses(getTeacherCourses(teacher.id));
+      setAssignments(getTeacherAssignments(teacher.id));
+      setTodayClasses(getTodayClasses(teacher.id));
+      setPendingAssignments(getPendingAssignments(teacher.id));
+    }
+  }, [teacher?.id]);
 
-  const presenceData = [{
-    x: ['Jan', 'Fév', 'Mar', 'Avr', 'Mai', 'Juin'],
-    y: [95, 93, 92, 96, 94, 97],
-    type: 'scatter' as const,
-    mode: 'lines+markers' as const,
-    marker: { color: '#2563eb' },
-    line: { shape: 'spline' as const, color: '#2563eb' },
-  }];
-  const presenceLayout = {
-    title: { text: 'Taux de présence mensuel (%)' },
-    height: 320,
-    margin: { t: 40, l: 40, r: 10, b: 40 },
-    paper_bgcolor: 'transparent',
-    plot_bgcolor: 'transparent',
-  };
-
-  const devoirsData = [{
-    values: [85, 15],
-    labels: ['Rendus', 'Non rendus'],
-    type: 'pie' as const,
-    marker: { colors: ['#10b981', '#f43f5e'] },
-    textinfo: 'label+percent' as 'label+percent',
-  }];
-  const devoirsLayout = {
-    title: { text: 'Devoirs rendus (%)' },
-    height: 320,
-    width: 400,
-    showlegend: true,
-    margin: { t: 40, l: 10, r: 10, b: 10 },
-    paper_bgcolor: 'transparent',
-    plot_bgcolor: 'transparent',
-  };
+  const stats = mockTeacherStatistics;
 
   return (
     <ProtectedRoute allowedRoles={['teacher']}>
@@ -78,16 +51,21 @@ export default function TeacherDashboard() {
             <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
               <h2 className="text-lg font-semibold text-gray-900 mb-4">Cours d&apos;aujourd&apos;hui</h2>
               <div className="space-y-3">
-                <div className="p-4 bg-blue-50 rounded-lg border border-blue-200">
-                  <div className="font-medium text-blue-800">Mathématiques - 1ère A</div>
-                  <div className="text-sm text-blue-600 mt-1">9h00 - 11h00 • Salle 201</div>
-                  <div className="text-sm text-blue-600">25 élèves présents</div>
-                </div>
-                <div className="p-4 bg-green-50 rounded-lg border border-green-200">
-                  <div className="font-medium text-green-800">Physique - Terminale B</div>
-                  <div className="text-sm text-green-600 mt-1">14h00 - 16h00 • Labo Physique</div>
-                  <div className="text-sm text-green-600">22 élèves présents</div>
-                </div>
+                {todayClasses.length > 0 ? (
+                  todayClasses.map((course) => (
+                    <div key={course.id} className="p-4 bg-blue-50 rounded-lg border border-blue-200">
+                      <div className="font-medium text-blue-800">{course.name}</div>
+                      <div className="text-sm text-blue-600 mt-1">
+                        {course.schedule.startTime} - {course.schedule.endTime} • {course.schedule.room}
+                      </div>
+                      <div className="text-sm text-blue-600">{course.students.length} élèves</div>
+                    </div>
+                  ))
+                ) : (
+                  <div className="p-4 bg-gray-50 rounded-lg border border-gray-200">
+                    <div className="text-gray-600">Aucun cours aujourd&apos;hui</div>
+                  </div>
+                )}
               </div>
             </div>
 
@@ -95,16 +73,28 @@ export default function TeacherDashboard() {
             <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
               <h2 className="text-lg font-semibold text-gray-900 mb-4">Devoirs à corriger</h2>
               <div className="space-y-3">
-                <div className="p-4 bg-orange-50 rounded-lg border border-orange-200">
-                  <div className="font-medium text-orange-800">Contrôle sur les intégrales</div>
-                  <div className="text-sm text-orange-600 mt-1">1ère A • 28 copies</div>
-                  <div className="text-sm text-red-600">Date limite : Aujourd&apos;hui</div>
-                </div>
-                <div className="p-4 bg-yellow-50 rounded-lg border border-yellow-200">
-                  <div className="font-medium text-yellow-800">TP Circuits électriques</div>
-                  <div className="text-sm text-yellow-600 mt-1">Terminale B • 15 rapports</div>
-                  <div className="text-sm text-yellow-600">Date limite : Vendredi</div>
-                </div>
+                {pendingAssignments.length > 0 ? (
+                  pendingAssignments.map((assignment) => {
+                    const pendingSubmissions = assignment.submissions.filter(
+                      (sub: any) => sub.status === 'submitted'
+                    );
+                    return (
+                      <div key={assignment.id} className="p-4 bg-orange-50 rounded-lg border border-orange-200">
+                        <div className="font-medium text-orange-800">{assignment.title}</div>
+                        <div className="text-sm text-orange-600 mt-1">
+                          {assignment.className} • {pendingSubmissions.length} copies
+                        </div>
+                        <div className="text-sm text-red-600">
+                          Date limite : {new Date(assignment.dueDate).toLocaleDateString('fr-FR')}
+                        </div>
+                      </div>
+                    );
+                  })
+                ) : (
+                  <div className="p-4 bg-gray-50 rounded-lg border border-gray-200">
+                    <div className="text-gray-600">Aucun devoir à corriger</div>
+                  </div>
+                )}
               </div>
             </div>
 
@@ -131,15 +121,19 @@ export default function TeacherDashboard() {
               <div className="space-y-4">
                 <div className="flex justify-between items-center">
                   <span className="text-sm text-gray-600">Moyenne générale</span>
-                  <span className="font-semibold text-green-600">15.2/20</span>
+                  <span className="font-semibold text-green-600">{stats.averageGrade.toFixed(1)}/20</span>
                 </div>
                 <div className="flex justify-between items-center">
                   <span className="text-sm text-gray-600">Taux de présence</span>
-                  <span className="font-semibold text-blue-600">94%</span>
+                  <span className="font-semibold text-blue-600">{stats.attendanceRate}%</span>
                 </div>
                 <div className="flex justify-between items-center">
                   <span className="text-sm text-gray-600">Devoirs rendus</span>
-                  <span className="font-semibold text-orange-600">85%</span>
+                  <span className="font-semibold text-orange-600">{stats.assignmentCompletionRate}%</span>
+                </div>
+                <div className="flex justify-between items-center">
+                  <span className="text-sm text-gray-600">Total élèves</span>
+                  <span className="font-semibold text-purple-600">{stats.totalStudents}</span>
                 </div>
               </div>
             </div>

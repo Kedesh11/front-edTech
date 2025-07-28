@@ -1,159 +1,119 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
-import { Teacher } from '@/mock/types';
+import { useState, useEffect } from 'react';
 import { ProtectedRoute } from '@/components/layout/ProtectedRoute';
-import { DashboardLayout, SidebarItem } from '@/components/layout/DashboardLayout';
+import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { useAuth } from '@/contexts/AuthContext';
-import {
-  DashboardIcon,
-  AnnouncementsIcon,
-  DocumentsIcon,
-  TrainingsIcon,
-  CalendarIcon,
-  RequestsIcon,
-  ProjectsIcon,
-} from '@/components/shared/dashboard/icons';
+import { Teacher } from '@/types/user';
+import { Communication, getPriorityColor } from '@/types/teacher';
+import { getTeacherCommunications } from '@/data/mock-teacher';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
+import { Button } from '@/components/ui/Button';
+import { Badge } from '@/components/ui/Badge';
 import { Input } from '@/components/ui/Input';
-import { Textarea } from '@/components/ui/Textarea';
 import { Select } from '@/components/ui/Select';
-
-interface Message {
-  id: string;
-  sender: string;
-  recipient: string;
-  subject: string;
-  content: string;
-  date: string;
-  isRead: boolean;
-  priority: 'low' | 'medium' | 'high';
-  type: 'email' | 'notification' | 'announcement';
-}
-
-const mockMessages: Message[] = [
-  {
-    id: '1',
-    sender: 'Marie Dupont (Parent)',
-    recipient: 'Jean Dupont',
-    subject: 'Question sur les devoirs de mathématiques',
-    content: 'Bonjour, j\'aimerais savoir si vous pourriez m\'expliquer les exercices donnés cette semaine...',
-    date: '2025-07-27T10:30:00',
-    isRead: false,
-    priority: 'medium',
-    type: 'email'
-  },
-  {
-    id: '2',
-    sender: 'Administration',
-    recipient: 'Tous les enseignants',
-    subject: 'Réunion pédagogique - Lundi 29 juillet',
-    content: 'Rappel : Réunion pédagogique lundi 29 juillet à 11h30 en salle des professeurs.',
-    date: '2025-07-26T14:00:00',
-    isRead: true,
-    priority: 'high',
-    type: 'announcement'
-  },
-  {
-    id: '3',
-    sender: 'Pierre Martin (Parent)',
-    recipient: 'Jean Dupont',
-    subject: 'Absence de mon fils',
-    content: 'Mon fils sera absent demain pour un rendez-vous médical.',
-    date: '2025-07-26T09:15:00',
-    isRead: true,
-    priority: 'low',
-    type: 'email'
-  },
-  {
-    id: '4',
-    sender: 'Système',
-    recipient: 'Jean Dupont',
-    subject: 'Nouveau devoir soumis',
-    content: 'Un nouveau devoir a été soumis par l\'élève Sophie Bernard pour le cours de mathématiques.',
-    date: '2025-07-25T16:45:00',
-    isRead: false,
-    priority: 'medium',
-    type: 'notification'
-  }
-];
+import { Textarea } from '@/components/ui/Textarea';
 
 export default function TeacherCommunications() {
   const { user } = useAuth();
-  const [messages, setMessages] = useState<Message[]>(mockMessages);
-  const [selectedMessage, setSelectedMessage] = useState<Message | null>(null);
-  const [selectedType, setSelectedType] = useState<string>('');
-  const [selectedPriority, setSelectedPriority] = useState<string>('');
+  const teacher = user as Teacher;
+  const [communications, setCommunications] = useState<Communication[]>([]);
+  const [filteredCommunications, setFilteredCommunications] = useState<Communication[]>([]);
+  const [selectedCommunication, setSelectedCommunication] = useState<Communication | null>(null);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [statusFilter, setStatusFilter] = useState('');
+  const [priorityFilter, setPriorityFilter] = useState('');
   const [isComposing, setIsComposing] = useState(false);
   const [newMessage, setNewMessage] = useState({
-    recipient: '',
-    subject: '',
+    title: '',
     content: '',
-    priority: 'medium' as 'low' | 'medium' | 'high'
+    recipients: { type: 'class' as const, ids: [] as string[] },
+    priority: 'medium' as const,
   });
 
-  const handleSendMessage = (e: React.FormEvent) => {
-    e.preventDefault();
-    const message: Message = {
-      id: Date.now().toString(),
-      sender: user?.firstName + ' ' + user?.lastName || 'Jean Dupont',
-      recipient: newMessage.recipient,
-      subject: newMessage.subject,
-      content: newMessage.content,
-      date: new Date().toISOString(),
-      isRead: false,
-      priority: newMessage.priority,
-      type: 'email'
-    };
-    setMessages([message, ...messages]);
-    setNewMessage({
-      recipient: '',
-      subject: '',
-      content: '',
-      priority: 'medium'
+  useEffect(() => {
+    if (teacher?.id) {
+      const teacherCommunications = getTeacherCommunications(teacher.id);
+      setCommunications(teacherCommunications);
+      setFilteredCommunications(teacherCommunications);
+    }
+  }, [teacher?.id]);
+
+  useEffect(() => {
+    let filtered = communications;
+
+    if (searchTerm) {
+      filtered = filtered.filter(comm =>
+        comm.title.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        comm.content.toLowerCase().includes(searchTerm.toLowerCase())
+      );
+    }
+
+    if (statusFilter) {
+      filtered = filtered.filter(comm => comm.status === statusFilter);
+    }
+
+    if (priorityFilter) {
+      filtered = filtered.filter(comm => comm.priority === priorityFilter);
+    }
+
+    setFilteredCommunications(filtered);
+  }, [communications, searchTerm, statusFilter, priorityFilter]);
+
+  const formatDate = (dateString: string) => {
+    return new Date(dateString).toLocaleDateString('fr-FR', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
     });
-    setIsComposing(false);
   };
 
-  const markAsRead = (messageId: string) => {
-    setMessages(messages.map(msg => 
-      msg.id === messageId ? { ...msg, isRead: true } : msg
-    ));
+  const getStatusText = (status: Communication['status']) => {
+    switch (status) {
+      case 'draft': return 'Brouillon';
+      case 'sent': return 'Envoyé';
+      case 'read': return 'Lu';
+      default: return status;
+    }
   };
 
-  const getPriorityColor = (priority: Message['priority']) => {
+  const getPriorityText = (priority: Communication['priority']) => {
     switch (priority) {
-      case 'high':
-        return 'text-red-600 bg-red-50';
-      case 'medium':
-        return 'text-yellow-600 bg-yellow-50';
-      case 'low':
-        return 'text-green-600 bg-green-50';
-      default:
-        return 'text-gray-600 bg-gray-50';
+      case 'low': return 'Faible';
+      case 'medium': return 'Moyenne';
+      case 'high': return 'Élevée';
+      case 'urgent': return 'Urgente';
+      default: return priority;
     }
   };
 
-  const getTypeIcon = (type: Message['type']) => {
-    switch (type) {
-      case 'email':
-        return '📧';
-      case 'notification':
-        return '🔔';
-      case 'announcement':
-        return '📢';
-      default:
-        return '📄';
+  const handleSendMessage = () => {
+    if (newMessage.title && newMessage.content) {
+      const communication: Communication = {
+        id: `comm-${Date.now()}`,
+        title: newMessage.title,
+        content: newMessage.content,
+        senderId: teacher.id,
+        senderName: `${teacher.firstName} ${teacher.lastName}`,
+        recipients: newMessage.recipients,
+        priority: newMessage.priority,
+        status: 'sent',
+        sentAt: new Date().toISOString(),
+        readBy: [],
+      };
+
+      setCommunications([communication, ...communications]);
+      setNewMessage({
+        title: '',
+        content: '',
+        recipients: { type: 'class', ids: [] },
+        priority: 'medium',
+      });
+      setIsComposing(false);
     }
   };
-
-  const filteredMessages = messages.filter(message => {
-    if (selectedType && message.type !== selectedType) return false;
-    if (selectedPriority && message.priority !== selectedPriority) return false;
-    return true;
-  });
-
-  const unreadCount = messages.filter(msg => !msg.isRead).length;
 
   return (
     <ProtectedRoute allowedRoles={['teacher']}>
@@ -164,191 +124,294 @@ export default function TeacherCommunications() {
           role: user?.role || '',
         }}
       >
-        <div className="space-y-8">
-          {/* Header Section */}
-          <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-2xl p-8 border border-blue-100">
-            <div className="max-w-4xl">
-              <h1 className="text-3xl font-bold text-gray-900 mb-2">
-                Communications
-              </h1>
-              <p className="text-lg text-gray-600">
-                Gérez vos messages, annonces et communications avec les parents et l'équipe pédagogique.
-              </p>
+        <div className="space-y-6">
+          {/* Header */}
+          <div className="flex justify-between items-center">
+            <div>
+              <h1 className="text-2xl font-bold text-gray-900">Communications</h1>
+              <p className="text-gray-600">Gérez vos communications avec les élèves et parents</p>
             </div>
+            <Button onClick={() => setIsComposing(true)}>
+              Nouvelle communication
+            </Button>
           </div>
 
-          {/* Stats and Actions */}
-          <div className="flex flex-col sm:flex-row gap-4 justify-between items-start sm:items-center">
-            <div className="flex items-center gap-6">
-              <div className="flex items-center gap-2">
-                <span className="text-sm font-medium text-gray-500">Messages non lus :</span>
-                <span className="px-2 py-1 text-sm font-semibold text-white bg-red-500 rounded-full">
-                  {unreadCount}
-                </span>
-              </div>
-            </div>
-            <button
-              onClick={() => setIsComposing(true)}
-              className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-            >
-              Nouveau message
-            </button>
-          </div>
-
-          {/* Filters */}
-          <div className="flex flex-col sm:flex-row gap-4">
-            <Select
-              value={selectedType}
-              onChange={(e) => setSelectedType(e.target.value)}
-              className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            >
-              <option value="">Tous les types</option>
-              <option value="email">Emails</option>
-              <option value="notification">Notifications</option>
-              <option value="announcement">Annonces</option>
-            </Select>
-            <Select
-              value={selectedPriority}
-              onChange={(e) => setSelectedPriority(e.target.value)}
-              className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            >
-              <option value="">Toutes les priorités</option>
-              <option value="high">Haute</option>
-              <option value="medium">Moyenne</option>
-              <option value="low">Basse</option>
-            </Select>
-          </div>
-
-          {/* Compose Message */}
+          {/* Formulaire de nouvelle communication */}
           {isComposing && (
-            <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">Nouveau message</h3>
-              <form onSubmit={handleSendMessage} className="space-y-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Destinataire
-                  </label>
-                  <Input
-                    type="text"
-                    value={newMessage.recipient}
-                    onChange={(e) => setNewMessage(prev => ({ ...prev, recipient: e.target.value }))}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    placeholder="Ex: Marie Dupont (Parent)"
-                    required
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Sujet
-                  </label>
-                  <Input
-                    type="text"
-                    value={newMessage.subject}
-                    onChange={(e) => setNewMessage(prev => ({ ...prev, subject: e.target.value }))}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    placeholder="Sujet du message"
-                    required
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Priorité
-                  </label>
-                  <Select
-                    value={newMessage.priority}
-                    onChange={(e) => setNewMessage(prev => ({ ...prev, priority: e.target.value as 'low' | 'medium' | 'high' }))}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                  >
-                    <option value="low">Basse</option>
-                    <option value="medium">Moyenne</option>
-                    <option value="high">Haute</option>
-                  </Select>
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Message
-                  </label>
-                  <Textarea
-                    value={newMessage.content}
-                    onChange={(e) => setNewMessage(prev => ({ ...prev, content: e.target.value }))}
-                    rows={4}
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    placeholder="Contenu du message..."
-                    required
-                  />
-                </div>
-                <div className="flex gap-3">
-                  <button
-                    type="submit"
-                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-                  >
-                    Envoyer
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setIsComposing(false)}
-                    className="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
-                  >
-                    Annuler
-                  </button>
-                </div>
-              </form>
-            </div>
-          )}
+            <Card>
+              <CardHeader>
+                <CardTitle>Nouvelle communication</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Titre
+                    </label>
+                    <Input
+                      value={newMessage.title}
+                      onChange={(e) => setNewMessage(prev => ({ ...prev, title: e.target.value }))}
+                      placeholder="Titre de la communication"
+                    />
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Contenu
+                    </label>
+                    <Textarea
+                      value={newMessage.content}
+                      onChange={(e) => setNewMessage(prev => ({ ...prev, content: e.target.value }))}
+                      placeholder="Contenu de votre message..."
+                      rows={4}
+                    />
+                  </div>
 
-          {/* Messages List */}
-          <div className="space-y-4">
-            {filteredMessages.map((message) => (
-              <div
-                key={message.id}
-                className={`bg-white rounded-xl shadow-sm p-6 border border-gray-100 cursor-pointer transition-colors ${
-                  !message.isRead ? 'border-l-4 border-l-blue-500' : ''
-                }`}
-                onClick={() => {
-                  setSelectedMessage(message);
-                  if (!message.isRead) markAsRead(message.id);
-                }}
-              >
-                <div className="flex items-start justify-between">
-                  <div className="flex items-start space-x-3 flex-1">
-                    <span className="text-2xl">{getTypeIcon(message.type)}</span>
-                    <div className="flex-1">
-                      <div className="flex items-center space-x-2 mb-1">
-                        <h3 className={`font-semibold ${!message.isRead ? 'text-gray-900' : 'text-gray-700'}`}>
-                          {message.subject}
-                        </h3>
-                        <span className={`px-2 py-1 text-xs font-medium rounded-full ${getPriorityColor(message.priority)}`}>
-                          {message.priority === 'high' ? 'Haute' : message.priority === 'medium' ? 'Moyenne' : 'Basse'}
-                        </span>
-                      </div>
-                      <p className="text-sm text-gray-600 mb-2">
-                        De : {message.sender}
-                      </p>
-                      <p className="text-sm text-gray-700 line-clamp-2">
-                        {message.content}
-                      </p>
-                      <p className="text-xs text-gray-500 mt-2">
-                        {new Date(message.date).toLocaleString('fr-FR')}
-                      </p>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Destinataires
+                      </label>
+                      <Select
+                        value={newMessage.recipients.type}
+                        onChange={(e) => setNewMessage(prev => ({ 
+                          ...prev, 
+                          recipients: { ...prev.recipients, type: e.target.value as any }
+                        }))}
+                      >
+                        <option value="class">Classe</option>
+                        <option value="student">Élève</option>
+                        <option value="parent">Parent</option>
+                        <option value="teacher">Enseignant</option>
+                      </Select>
+                    </div>
+                    
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">
+                        Priorité
+                      </label>
+                      <Select
+                        value={newMessage.priority}
+                        onChange={(e) => setNewMessage(prev => ({ 
+                          ...prev, 
+                          priority: e.target.value as any 
+                        }))}
+                      >
+                        <option value="low">Faible</option>
+                        <option value="medium">Moyenne</option>
+                        <option value="high">Élevée</option>
+                        <option value="urgent">Urgente</option>
+                      </Select>
                     </div>
                   </div>
-                  <div className="flex space-x-2">
-                    <button className="px-3 py-1 text-sm bg-gray-100 text-gray-700 rounded hover:bg-gray-200 transition-colors">
-                      Répondre
-                    </button>
-                    <button className="px-3 py-1 text-sm bg-gray-100 text-gray-700 rounded hover:bg-gray-200 transition-colors">
-                      Supprimer
-                    </button>
+
+                  <div className="flex gap-2">
+                    <Button onClick={handleSendMessage}>
+                      Envoyer
+                    </Button>
+                    <Button variant="outline" onClick={() => setIsComposing(false)}>
+                      Annuler
+                    </Button>
                   </div>
                 </div>
-              </div>
-            ))}
-            
-            {filteredMessages.length === 0 && (
-              <div className="bg-white rounded-xl shadow-sm p-8 border border-gray-100 text-center">
-                <p className="text-gray-500">Aucun message trouvé.</p>
-              </div>
-            )}
+              </CardContent>
+            </Card>
+          )}
+
+          {/* Filtres */}
+          <div className="flex gap-4">
+            <div className="flex-1">
+              <Input
+                placeholder="Rechercher une communication..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+              />
+            </div>
+            <div className="w-48">
+              <Select
+                value={statusFilter}
+                onChange={(e) => setStatusFilter(e.target.value)}
+              >
+                <option value="">Tous les statuts</option>
+                <option value="draft">Brouillon</option>
+                <option value="sent">Envoyé</option>
+                <option value="read">Lu</option>
+              </Select>
+            </div>
+            <div className="w-48">
+              <Select
+                value={priorityFilter}
+                onChange={(e) => setPriorityFilter(e.target.value)}
+              >
+                <option value="">Toutes les priorités</option>
+                <option value="low">Faible</option>
+                <option value="medium">Moyenne</option>
+                <option value="high">Élevée</option>
+                <option value="urgent">Urgente</option>
+              </Select>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            {/* Liste des communications */}
+            <div className="lg:col-span-1">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Communications ({filteredCommunications.length})</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-3">
+                    {filteredCommunications.map((communication) => (
+                      <div
+                        key={communication.id}
+                        className={`p-4 rounded-lg border cursor-pointer transition-colors ${
+                          selectedCommunication?.id === communication.id
+                            ? 'border-blue-500 bg-blue-50'
+                            : 'border-gray-200 hover:border-gray-300'
+                        }`}
+                        onClick={() => setSelectedCommunication(communication)}
+                      >
+                        <div className="flex justify-between items-start mb-2">
+                          <h3 className="font-medium text-gray-900">{communication.title}</h3>
+                          <Badge className={getPriorityColor(communication.priority)}>
+                            {getPriorityText(communication.priority)}
+                          </Badge>
+                        </div>
+                        <p className="text-sm text-gray-600 mb-2 line-clamp-2">
+                          {communication.content}
+                        </p>
+                                                 <div className="flex justify-between items-center text-xs text-gray-500">
+                           <span>{formatDate(communication.sentAt || '')}</span>
+                          <Badge 
+                            variant="default" 
+                            className={
+                              communication.status === 'read' ? 'bg-green-100 text-green-800' :
+                              communication.status === 'sent' ? 'bg-blue-100 text-blue-800' :
+                              'bg-gray-100 text-gray-800'
+                            }
+                          >
+                            {getStatusText(communication.status)}
+                          </Badge>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Détails de la communication */}
+            <div className="lg:col-span-2">
+              {selectedCommunication ? (
+                <Card>
+                  <CardHeader>
+                    <div className="flex justify-between items-start">
+                      <div>
+                        <CardTitle>{selectedCommunication.title}</CardTitle>
+                                                 <p className="text-gray-600 mt-1">
+                           Envoyé le {formatDate(selectedCommunication.sentAt || '')}
+                         </p>
+                      </div>
+                      <div className="flex gap-2">
+                        <Badge className={getPriorityColor(selectedCommunication.priority)}>
+                          {getPriorityText(selectedCommunication.priority)}
+                        </Badge>
+                        <Badge 
+                          variant="default" 
+                          className={
+                            selectedCommunication.status === 'read' ? 'bg-green-100 text-green-800' :
+                            selectedCommunication.status === 'sent' ? 'bg-blue-100 text-blue-800' :
+                            'bg-gray-100 text-gray-800'
+                          }
+                        >
+                          {getStatusText(selectedCommunication.status)}
+                        </Badge>
+                      </div>
+                    </div>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-6">
+                      {/* Contenu */}
+                      <div>
+                        <h3 className="text-lg font-medium text-gray-900 mb-3">Contenu</h3>
+                        <div className="p-4 bg-gray-50 rounded-lg">
+                          <p className="text-gray-700 whitespace-pre-wrap">
+                            {selectedCommunication.content}
+                          </p>
+                        </div>
+                      </div>
+
+                      {/* Destinataires */}
+                      <div>
+                        <h3 className="text-lg font-medium text-gray-900 mb-3">Destinataires</h3>
+                        <div className="grid grid-cols-2 gap-4">
+                          <div>
+                            <label className="text-sm font-medium text-gray-700">Type</label>
+                            <p className="text-gray-900">
+                              {selectedCommunication.recipients.type === 'class' && 'Classe'}
+                              {selectedCommunication.recipients.type === 'student' && 'Élève'}
+                              {selectedCommunication.recipients.type === 'parent' && 'Parent'}
+                              {selectedCommunication.recipients.type === 'teacher' && 'Enseignant'}
+                            </p>
+                          </div>
+                          <div>
+                            <label className="text-sm font-medium text-gray-700">Nombre</label>
+                            <p className="text-gray-900">{selectedCommunication.recipients.ids.length} destinataires</p>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Statistiques de lecture */}
+                      <div>
+                        <h3 className="text-lg font-medium text-gray-900 mb-3">Statistiques de lecture</h3>
+                        <div className="grid grid-cols-2 gap-4">
+                          <div className="text-center p-3 bg-blue-50 rounded-lg">
+                            <div className="text-2xl font-bold text-blue-600">
+                              {selectedCommunication.readBy.length}
+                            </div>
+                            <div className="text-sm text-gray-600">Lu par</div>
+                          </div>
+                          <div className="text-center p-3 bg-green-50 rounded-lg">
+                            <div className="text-2xl font-bold text-green-600">
+                              {selectedCommunication.recipients.ids.length - selectedCommunication.readBy.length}
+                            </div>
+                            <div className="text-sm text-gray-600">Non lu</div>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Pièces jointes */}
+                      {selectedCommunication.attachments && selectedCommunication.attachments.length > 0 && (
+                        <div>
+                          <h3 className="text-lg font-medium text-gray-900 mb-3">Pièces jointes</h3>
+                          <div className="space-y-2">
+                            {selectedCommunication.attachments.map((attachment, index) => (
+                              <div key={index} className="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
+                                <div>
+                                  <p className="font-medium text-gray-900">{attachment.name}</p>
+                                  <p className="text-sm text-gray-600">{attachment.type}</p>
+                                </div>
+                                <Button size="sm" variant="outline">
+                                  Télécharger
+                                </Button>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
+              ) : (
+                <Card>
+                  <CardContent className="flex items-center justify-center h-64">
+                    <div className="text-center">
+                      <p className="text-gray-500">Sélectionnez une communication pour voir les détails</p>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+            </div>
           </div>
         </div>
       </DashboardLayout>

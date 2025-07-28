@@ -5,7 +5,8 @@ import {
   TrainingsIcon, 
   CalendarIcon, 
   RequestsIcon,
-  ProjectsIcon 
+  ProjectsIcon,
+  BotIcon
 } from '@/components/shared/dashboard/icons';
 import React from 'react';
 
@@ -35,6 +36,8 @@ export const iconMapping: { [key: string]: React.ComponentType } = {
   'Inventaire': TrainingsIcon,
   'Maintenance': AnnouncementsIcon,
   'Tickets': CalendarIcon,
+  'Groupes de travail': ProjectsIcon,
+  'Assistants IA': BotIcon,
 };
 
 export const getIconForLabel = (label: string): React.ReactNode => {

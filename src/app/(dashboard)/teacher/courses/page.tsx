@@ -1,79 +1,64 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { ProtectedRoute } from '@/components/layout/ProtectedRoute';
 import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { useAuth } from '@/contexts/AuthContext';
-import { Form } from '@/components/shared/forms/Form';
-import { FormField } from '@/components/shared/forms/types';
+import { Teacher } from '@/types/user';
+import { Course } from '@/types/teacher';
+import { getTeacherCourses } from '@/data/mock-teacher';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
+import { Badge } from '@/components/ui/Badge';
 import { Input } from '@/components/ui/Input';
-
-interface Course {
-  id: string;
-  title: string;
-  subject: string;
-  class: string;
-  schedule: string;
-  room: string;
-  studentsCount: number;
-  description: string;
-  nextLesson: string;
-  progress: number;
-}
-
-const mockCourses: Course[] = [
-  {
-    id: '1',
-    title: 'Mathématiques - 1ère A',
-    subject: 'Mathématiques',
-    class: '1ère A',
-    schedule: 'Lundi et Mercredi, 9h-11h',
-    room: 'Salle 201',
-    studentsCount: 32,
-    description: 'Cours de mathématiques avancées couvrant l\'algèbre et l\'analyse',
-    nextLesson: '2025-07-29T09:00:00',
-    progress: 65,
-  },
-  {
-    id: '2',
-    title: 'Physique - Terminale B',
-    subject: 'Physique',
-    class: 'Terminale B',
-    schedule: 'Mardi et Jeudi, 14h-16h',
-    room: 'Laboratoire 102',
-    studentsCount: 28,
-    description: 'Introduction à la physique quantique et à la mécanique ondulatoire',
-    nextLesson: '2025-07-28T14:00:00',
-    progress: 45,
-  },
-  {
-    id: '3',
-    title: 'Mathématiques - 2nde C',
-    subject: 'Mathématiques',
-    class: '2nde C',
-    schedule: 'Vendredi, 10h-13h',
-    room: 'Salle 105',
-    studentsCount: 35,
-    description: 'Fondamentaux des mathématiques pour la classe de seconde',
-    nextLesson: '2025-08-01T10:00:00',
-    progress: 80,
-  },
-];
+import { Select } from '@/components/ui/Select';
 
 export default function TeacherCourses() {
   const { user } = useAuth();
-  const [courses, setCourses] = useState<Course[]>(mockCourses);
-  const [selectedSubject, setSelectedSubject] = useState<string>('');
-  const [selectedClass, setSelectedClass] = useState<string>('');
-  const [isAddingCourse, setIsAddingCourse] = useState(false);
-  const [newCourse, setNewCourse] = useState({
-    title: '',
-    subject: '',
-    class: '',
-    schedule: '',
-    description: ''
-  });
+  const teacher = user as Teacher;
+  const [courses, setCourses] = useState<Course[]>([]);
+  const [filteredCourses, setFilteredCourses] = useState<Course[]>([]);
+  const [selectedCourse, setSelectedCourse] = useState<Course | null>(null);
+  const [searchTerm, setSearchTerm] = useState('');
+  const [subjectFilter, setSubjectFilter] = useState('');
+
+  useEffect(() => {
+    if (teacher?.id) {
+      const teacherCourses = getTeacherCourses(teacher.id);
+      setCourses(teacherCourses);
+      setFilteredCourses(teacherCourses);
+    }
+  }, [teacher?.id]);
+
+  useEffect(() => {
+    let filtered = courses;
+
+    if (searchTerm) {
+      filtered = filtered.filter(course =>
+        course.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        course.className.toLowerCase().includes(searchTerm.toLowerCase())
+      );
+    }
+
+    if (subjectFilter) {
+      filtered = filtered.filter(course => course.subject === subjectFilter);
+    }
+
+    setFilteredCourses(filtered);
+  }, [courses, searchTerm, subjectFilter]);
+
+  const subjects = [...new Set(courses.map(course => course.subject))];
+
+  const getStatusColor = (isActive: boolean) => {
+    return isActive ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800';
+  };
+
+  const formatTime = (time: string) => {
+    return new Date(`2000-01-01T${time}`).toLocaleTimeString('fr-FR', {
+      hour: '2-digit',
+      minute: '2-digit',
+    });
+  };
 
   return (
     <ProtectedRoute allowedRoles={['teacher']}>
@@ -84,95 +69,188 @@ export default function TeacherCourses() {
           role: user?.role || '',
         }}
       >
-        <div className="space-y-8">
-          {/* Header Section */}
-          <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-2xl p-8 border border-blue-100">
-            <div className="max-w-4xl">
-              <h1 className="text-3xl font-bold text-gray-900 mb-2">
-                Mes cours
-              </h1>
-              <p className="text-lg text-gray-600">
-                Gérez vos cours, consultez les emplois du temps et suivez la progression de vos classes.
-              </p>
+        <div className="space-y-6">
+          {/* Header */}
+          <div className="flex justify-between items-center">
+            <div>
+              <h1 className="text-2xl font-bold text-gray-900">Mes Cours</h1>
+              <p className="text-gray-600">Gérez vos cours et ressources pédagogiques</p>
+            </div>
+            <Button onClick={() => console.log('Nouveau cours')}>
+              Nouveau cours
+            </Button>
+          </div>
+
+          {/* Filtres */}
+          <div className="flex gap-4">
+            <div className="flex-1">
+              <Input
+                placeholder="Rechercher un cours..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+              />
+            </div>
+            <div className="w-48">
+              <Select
+                value={subjectFilter}
+                onChange={(e) => setSubjectFilter(e.target.value)}
+              >
+                <option value="">Toutes les matières</option>
+                {subjects.map(subject => (
+                  <option key={subject} value={subject}>{subject}</option>
+                ))}
+              </Select>
             </div>
           </div>
 
-          {/* Courses Grid */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {courses.map((course) => (
-              <div
-                key={course.id}
-                className="bg-white rounded-xl shadow-sm hover:shadow-md transition-shadow p-6 border border-gray-100"
-              >
-                <div className="flex items-center justify-between mb-4">
-                  <h2 className="text-xl font-semibold text-gray-900">
-                    {course.title}
-                  </h2>
-                  <span className="px-3 py-1 text-sm font-medium text-blue-600 bg-blue-50 rounded-full">
-                    {course.progress}%
-                  </span>
-                </div>
-                
-                <div className="space-y-3">
-                  <div>
-                    <p className="text-sm font-medium text-gray-500">Matière</p>
-                    <p className="text-gray-900">{course.subject}</p>
-                  </div>
-                  
-                  <div>
-                    <p className="text-sm font-medium text-gray-500">Horaires</p>
-                    <p className="text-gray-900">{course.schedule}</p>
-                  </div>
-                  
-                  <div>
-                    <p className="text-sm font-medium text-gray-500">Salle</p>
-                    <p className="text-gray-900">{course.room}</p>
-                  </div>
-                  
-                  <div>
-                    <p className="text-sm font-medium text-gray-500">Élèves</p>
-                    <p className="text-gray-900">{course.studentsCount} inscrits</p>
-                  </div>
-                  
-                  <div>
-                    <p className="text-sm font-medium text-gray-500">Description</p>
-                    <p className="text-gray-600 text-sm">{course.description}</p>
-                  </div>
-
-                  <div className="mt-4">
-                    <div className="w-full bg-gray-200 rounded-full h-2">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+            {/* Liste des cours */}
+            <div className="lg:col-span-1">
+              <Card>
+                <CardHeader>
+                  <CardTitle>Cours ({filteredCourses.length})</CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="space-y-3">
+                    {filteredCourses.map((course) => (
                       <div
-                        className="bg-blue-600 h-2 rounded-full"
-                        style={{ width: `${course.progress}%` }}
-                      ></div>
+                        key={course.id}
+                        className={`p-4 rounded-lg border cursor-pointer transition-colors ${
+                          selectedCourse?.id === course.id
+                            ? 'border-blue-500 bg-blue-50'
+                            : 'border-gray-200 hover:border-gray-300'
+                        }`}
+                        onClick={() => setSelectedCourse(course)}
+                      >
+                        <div className="flex justify-between items-start mb-2">
+                          <h3 className="font-medium text-gray-900">{course.name}</h3>
+                          <Badge className={getStatusColor(course.isActive)}>
+                            {course.isActive ? 'Actif' : 'Inactif'}
+                          </Badge>
+                        </div>
+                        <p className="text-sm text-gray-600 mb-2">{course.className}</p>
+                        <div className="flex justify-between items-center text-xs text-gray-500">
+                          <span>{course.schedule.day} {formatTime(course.schedule.startTime)}</span>
+                          <span>{course.students.length} élèves</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Détails du cours */}
+            <div className="lg:col-span-2">
+              {selectedCourse ? (
+                <Card>
+                  <CardHeader>
+                    <div className="flex justify-between items-start">
+                      <div>
+                        <CardTitle>{selectedCourse.name}</CardTitle>
+                        <p className="text-gray-600 mt-1">{selectedCourse.className}</p>
+                      </div>
+                      <div className="flex gap-2">
+                        <Button variant="outline" size="sm">
+                          Modifier
+                        </Button>
+                        <Button size="sm">
+                          Gérer
+                        </Button>
+                      </div>
                     </div>
-                  </div>
+                  </CardHeader>
+                  <CardContent>
+                    <div className="space-y-6">
+                      {/* Informations générales */}
+                      <div>
+                        <h3 className="text-lg font-medium text-gray-900 mb-3">Informations générales</h3>
+                        <div className="grid grid-cols-2 gap-4">
+                          <div>
+                            <label className="text-sm font-medium text-gray-700">Matière</label>
+                            <p className="text-gray-900">{selectedCourse.subject}</p>
+                          </div>
+                          <div>
+                            <label className="text-sm font-medium text-gray-700">Salle</label>
+                            <p className="text-gray-900">{selectedCourse.schedule.room}</p>
+                          </div>
+                          <div>
+                            <label className="text-sm font-medium text-gray-700">Horaire</label>
+                            <p className="text-gray-900">
+                              {selectedCourse.schedule.day} {formatTime(selectedCourse.schedule.startTime)} - {formatTime(selectedCourse.schedule.endTime)}
+                            </p>
+                          </div>
+                          <div>
+                            <label className="text-sm font-medium text-gray-700">Élèves</label>
+                            <p className="text-gray-900">{selectedCourse.students.length} élèves</p>
+                          </div>
+                        </div>
+                      </div>
 
-                  <div className="pt-4">
-                    <p className="text-sm font-medium text-gray-500">Prochain cours</p>
-                    <p className="text-gray-900">
-                      {new Date(course.nextLesson).toLocaleDateString('fr-FR', {
-                        weekday: 'long',
-                        year: 'numeric',
-                        month: 'long',
-                        day: 'numeric',
-                        hour: '2-digit',
-                        minute: '2-digit',
-                      })}
-                    </p>
-                  </div>
-                </div>
+                      {/* Description */}
+                      {selectedCourse.description && (
+                        <div>
+                          <h3 className="text-lg font-medium text-gray-900 mb-3">Description</h3>
+                          <p className="text-gray-700">{selectedCourse.description}</p>
+                        </div>
+                      )}
 
-                <div className="mt-6 flex gap-2">
-                  <button className="flex-1 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
-                    Voir détails
-                  </button>
-                  <button className="flex-1 px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors">
-                    Emploi du temps
-                  </button>
-                </div>
-              </div>
-            ))}
+                      {/* Objectifs */}
+                      {selectedCourse.objectives && selectedCourse.objectives.length > 0 && (
+                        <div>
+                          <h3 className="text-lg font-medium text-gray-900 mb-3">Objectifs</h3>
+                          <ul className="list-disc list-inside space-y-1">
+                            {selectedCourse.objectives.map((objective, index) => (
+                              <li key={index} className="text-gray-700">{objective}</li>
+                            ))}
+                          </ul>
+                        </div>
+                      )}
+
+                      {/* Ressources */}
+                      <div>
+                        <div className="flex justify-between items-center mb-3">
+                          <h3 className="text-lg font-medium text-gray-900">Ressources ({selectedCourse.resources?.length || 0})</h3>
+                          <Button size="sm" variant="outline">
+                            Ajouter
+                          </Button>
+                        </div>
+                        {selectedCourse.resources && selectedCourse.resources.length > 0 ? (
+                          <div className="space-y-2">
+                            {selectedCourse.resources.map((resource) => (
+                              <div key={resource.id} className="flex justify-between items-center p-3 bg-gray-50 rounded-lg">
+                                <div>
+                                  <p className="font-medium text-gray-900">{resource.name}</p>
+                                  <p className="text-sm text-gray-600">{resource.description}</p>
+                                </div>
+                                <div className="flex items-center gap-2">
+                                  <Badge variant="default" className="text-xs">
+                                    {resource.type}
+                                  </Badge>
+                                  <Button size="sm" variant="ghost">
+                                    Voir
+                                  </Button>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        ) : (
+                          <p className="text-gray-500">Aucune ressource ajoutée</p>
+                        )}
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              ) : (
+                <Card>
+                  <CardContent className="flex items-center justify-center h-64">
+                    <div className="text-center">
+                      <p className="text-gray-500">Sélectionnez un cours pour voir les détails</p>
+                    </div>
+                  </CardContent>
+                </Card>
+              )}
+            </div>
           </div>
         </div>
       </DashboardLayout>

@@ -1,216 +1,84 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
-import { Teacher } from '@/mock/types';
+import { useState, useEffect } from 'react';
 import { ProtectedRoute } from '@/components/layout/ProtectedRoute';
-import { DashboardLayout, SidebarItem } from '@/components/layout/DashboardLayout';
+import { DashboardLayout } from '@/components/layout/DashboardLayout';
 import { useAuth } from '@/contexts/AuthContext';
-import {
-  DashboardIcon,
-  AnnouncementsIcon,
-  DocumentsIcon,
-  TrainingsIcon,
-  CalendarIcon,
-  RequestsIcon,
-  ProjectsIcon,
-} from '@/components/shared/dashboard/icons';
-import { Input } from '@/components/ui/Input';
-import { Select } from '@/components/ui/Select';
+import { Teacher } from '@/types/user';
+import { Course, ClassSchedule } from '@/types/teacher';
+import { getTeacherCourses } from '@/data/mock-teacher';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/Card';
 import { Button } from '@/components/ui/Button';
-
-interface ScheduleEvent {
-  id: string;
-  title: string;
-  type: 'course' | 'meeting' | 'exam' | 'office_hours';
-  startTime: string;
-  endTime: string;
-  date: string;
-  room: string;
-  class?: string;
-  subject?: string;
-  description?: string;
-}
-
-const mockSchedule: ScheduleEvent[] = [
-  {
-    id: '1',
-    title: 'Mathématiques - 1ère A',
-    type: 'course',
-    startTime: '09:00',
-    endTime: '11:00',
-    date: '2025-07-28',
-    room: 'Salle 201',
-    class: '1ère A',
-    subject: 'Mathématiques',
-    description: 'Cours sur les fonctions exponentielles'
-  },
-  {
-    id: '2',
-    title: 'Réunion équipe pédagogique',
-    type: 'meeting',
-    startTime: '11:30',
-    endTime: '12:30',
-    date: '2025-07-28',
-    room: 'Salle des professeurs',
-    description: 'Réunion hebdomadaire de l\'équipe pédagogique'
-  },
-  {
-    id: '3',
-    title: 'Physique - Terminale B',
-    type: 'course',
-    startTime: '14:00',
-    endTime: '16:00',
-    date: '2025-07-28',
-    room: 'Laboratoire 102',
-    class: 'Terminale B',
-    subject: 'Physique',
-    description: 'TP sur les forces et le mouvement'
-  },
-  {
-    id: '4',
-    title: 'Heures de permanence',
-    type: 'office_hours',
-    startTime: '16:30',
-    endTime: '18:00',
-    date: '2025-07-28',
-    room: 'Salle 201',
-    description: 'Heures de permanence pour les élèves'
-  },
-  {
-    id: '5',
-    title: 'Contrôle Mathématiques',
-    type: 'exam',
-    startTime: '09:00',
-    endTime: '11:00',
-    date: '2025-07-29',
-    room: 'Salle 201',
-    class: '1ère A',
-    subject: 'Mathématiques',
-    description: 'Contrôle sur les fonctions exponentielles'
-  },
-  {
-    id: '6',
-    title: 'Mathématiques - 2nde C',
-    type: 'course',
-    startTime: '10:00',
-    endTime: '13:00',
-    date: '2025-07-30',
-    room: 'Salle 105',
-    class: '2nde C',
-    subject: 'Mathématiques',
-    description: 'Cours sur les équations du second degré'
-  }
-];
+import { Badge } from '@/components/ui/Badge';
+import { Select } from '@/components/ui/Select';
 
 export default function TeacherSchedule() {
   const { user } = useAuth();
-  const [schedule, setSchedule] = useState<ScheduleEvent[]>(mockSchedule);
-  const [selectedDate, setSelectedDate] = useState<string>('2025-07-28');
-  const [selectedType, setSelectedType] = useState<string>('');
-  const [isAddingEvent, setIsAddingEvent] = useState(false);
-  const [newEvent, setNewEvent] = useState({
-    title: '',
-    type: 'course' as 'course' | 'exam' | 'meeting' | 'office_hours',
-    startTime: '',
-    endTime: '',
-    date: '',
-    room: '',
-    class: '',
-    description: ''
-  });
+  const teacher = user as Teacher;
+  const [courses, setCourses] = useState<Course[]>([]);
+  const [selectedDay, setSelectedDay] = useState<string>('Lundi');
+  const [selectedWeek, setSelectedWeek] = useState<number>(1);
 
-  const getEventTypeColor = (type: ScheduleEvent['type']) => {
-    switch (type) {
-      case 'course':
-        return 'bg-blue-100 text-blue-800 border-blue-200';
-      case 'meeting':
-        return 'bg-purple-100 text-purple-800 border-purple-200';
-      case 'exam':
-        return 'bg-red-100 text-red-800 border-red-200';
-      case 'office_hours':
-        return 'bg-green-100 text-green-800 border-green-200';
-      default:
-        return 'bg-gray-100 text-gray-800 border-gray-200';
+  useEffect(() => {
+    if (teacher?.id) {
+      const teacherCourses = getTeacherCourses(teacher.id);
+      setCourses(teacherCourses);
     }
-  };
+  }, [teacher?.id]);
 
-  const getEventTypeIcon = (type: ScheduleEvent['type']) => {
-    switch (type) {
-      case 'course':
-        return (
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.746 0 3.332.477 4.5 1.253v13C19.832 18.477 18.246 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
-          </svg>
-        );
-      case 'meeting':
-        return (
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
-          </svg>
-        );
-      case 'exam':
-        return (
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-          </svg>
-        );
-      case 'office_hours':
-        return (
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-          </svg>
-        );
-      default:
-        return (
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-          </svg>
-        );
-    }
-  };
+  const daysOfWeek = ['Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi', 'Dimanche'];
+  const timeSlots = [
+    '08:00', '09:00', '10:00', '11:00', '12:00', '13:00', '14:00', '15:00', '16:00', '17:00', '18:00'
+  ];
 
-  const handleAddEvent = (e: React.FormEvent) => {
-    e.preventDefault();
-    const event: ScheduleEvent = {
-      id: Date.now().toString(),
-      title: newEvent.title,
-      type: newEvent.type,
-      startTime: newEvent.startTime,
-      endTime: newEvent.endTime,
-      date: newEvent.date,
-      room: newEvent.room,
-      class: newEvent.class,
-      description: newEvent.description
-    };
-    setSchedule([...schedule, event]);
-    setNewEvent({
-      title: '',
-      type: 'course',
-      startTime: '',
-      endTime: '',
-      date: '',
-      room: '',
-      class: '',
-      description: ''
+  const formatTime = (time: string) => {
+    return new Date(`2000-01-01T${time}`).toLocaleTimeString('fr-FR', {
+      hour: '2-digit',
+      minute: '2-digit',
     });
-    setIsAddingEvent(false);
   };
 
-  const filteredSchedule = schedule.filter(event => {
-    if (selectedDate && event.date !== selectedDate) return false;
-    if (selectedType && event.type !== selectedType) return false;
-    return true;
-  });
+  const getCoursesForDay = (day: string) => {
+    return courses.filter(course => course.schedule.day === day);
+  };
 
-  const groupedEvents = filteredSchedule.reduce((groups, event) => {
-    const date = event.date;
-    if (!groups[date]) {
-      groups[date] = [];
+  const getCourseAtTime = (day: string, time: string) => {
+    const dayCourses = getCoursesForDay(day);
+    return dayCourses.find(course => {
+      const startTime = course.schedule.startTime;
+      const endTime = course.schedule.endTime;
+      return time >= startTime && time < endTime;
+    });
+  };
+
+  const getCurrentWeek = () => {
+    const now = new Date();
+    const start = new Date(now.getFullYear(), 0, 1);
+    const days = Math.floor((now.getTime() - start.getTime()) / (24 * 60 * 60 * 1000));
+    return Math.ceil(days / 7);
+  };
+
+  useEffect(() => {
+    setSelectedWeek(getCurrentWeek());
+  }, []);
+
+  const getWeekDates = (weekNumber: number) => {
+    const year = new Date().getFullYear();
+    const startOfYear = new Date(year, 0, 1);
+    const startOfWeek = new Date(startOfYear);
+    startOfWeek.setDate(startOfYear.getDate() + (weekNumber - 1) * 7);
+    
+    const dates = [];
+    for (let i = 0; i < 7; i++) {
+      const date = new Date(startOfWeek);
+      date.setDate(startOfWeek.getDate() + i);
+      dates.push(date);
     }
-    groups[date].push(event);
-    return groups;
-  }, {} as Record<string, ScheduleEvent[]>);
+    return dates;
+  };
+
+  const weekDates = getWeekDates(selectedWeek);
+  const today = new Date().toDateString();
 
   return (
     <ProtectedRoute allowedRoles={['teacher']}>
@@ -221,114 +89,226 @@ export default function TeacherSchedule() {
           role: user?.role || '',
         }}
       >
-        <div className="space-y-8">
-          {/* Header Section */}
-          <div className="bg-gradient-to-r from-blue-50 to-indigo-50 rounded-2xl p-8 border border-blue-100">
-            <div className="max-w-4xl">
-              <h1 className="text-3xl font-bold text-gray-900 mb-2">
-                Mon emploi du temps
-              </h1>
-              <p className="text-lg text-gray-600">
-                Consultez votre planning, gérez vos cours et vos rendez-vous.
-              </p>
+        <div className="space-y-6">
+          {/* Header */}
+          <div className="flex justify-between items-center">
+            <div>
+              <h1 className="text-2xl font-bold text-gray-900">Emploi du temps</h1>
+              <p className="text-gray-600">Consultez votre planning de cours</p>
+            </div>
+            <div className="flex gap-2">
+              <Button variant="outline" onClick={() => setSelectedWeek(selectedWeek - 1)}>
+                Semaine précédente
+              </Button>
+              <Button variant="outline" onClick={() => setSelectedWeek(selectedWeek + 1)}>
+                Semaine suivante
+              </Button>
             </div>
           </div>
 
-          {/* Filters */}
-          <div className="flex flex-col sm:flex-row gap-4">
-            <Input
-              type="date"
-              value={selectedDate}
-              onChange={(e) => setSelectedDate(e.target.value)}
-              className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            />
-            < Select
-              value={selectedType}
-              onChange={(e) => setSelectedType(e.target.value)}
-              className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            >
-              <option value="">Tous les types</option>
-              <option value="course">Cours</option>
-              <option value="meeting">Réunions</option>
-              <option value="exam">Contrôles</option>
-              <option value="office_hours">Permanences</option>
-            </Select>
-          </div>
-
-          {/* Schedule */}
-          <div className="space-y-6">
-            {Object.entries(groupedEvents).map(([date, events]) => (
-              <div key={date} className="bg-white rounded-xl shadow-sm p-6 border border-gray-100">
-                <h3 className="text-lg font-semibold text-gray-900 mb-4">
-                  {new Date(date).toLocaleDateString('fr-FR', {
-                    weekday: 'long',
-                    year: 'numeric',
-                    month: 'long',
-                    day: 'numeric'
-                  })}
-                </h3>
-                
-                <div className="space-y-4">
-                  {events
-                    .sort((a, b) => a.startTime.localeCompare(b.startTime))
-                    .map((event) => (
-                      <div
-                        key={event.id}
-                        className={`p-4 rounded-lg border ${getEventTypeColor(event.type)}`}
-                      >
-                        <div className="flex items-start justify-between">
-                          <div className="flex items-start space-x-3">
-                            <span className="text-2xl">{getEventTypeIcon(event.type)}</span>
-                            <div className="flex-1">
-                              <div className="flex items-center space-x-2 mb-1">
-                                <h4 className="font-semibold">{event.title}</h4>
-                                <span className="text-sm px-2 py-1 rounded-full bg-white bg-opacity-50">
-                                  {event.type}
-                                </span>
-                              </div>
-                              
-                              <div className="text-sm space-y-1">
-                                <div className="flex items-center space-x-4">
-                                  <span>🕐 {event.startTime} - {event.endTime}</span>
-                                  <span>📍 {event.room}</span>
-                                </div>
-                                
-                                {event.class && (
-                                  <div className="flex items-center space-x-4">
-                                    <span>👥 {event.class}</span>
-                                    {event.subject && <span>📚 {event.subject}</span>}
-                                  </div>
-                                )}
-                                
-                                {event.description && (
-                                  <p className="text-sm opacity-90 mt-2">
-                                    {event.description}
-                                  </p>
-                                )}
-                              </div>
-                            </div>
-                          </div>
-                          
-                          <div className="flex space-x-2">
-                            <Button className="px-3 py-1 text-sm bg-white bg-opacity-50 rounded hover:bg-opacity-75 transition-colors">
-                              Modifier
-                            </Button>
-                            <Button className="px-3 py-1 text-sm bg-white bg-opacity-50 rounded hover:bg-opacity-75 transition-colors">
-                              Détails
-                            </Button>
-                          </div>
-                        </div>
-                      </div>
+          {/* Sélecteur de semaine */}
+          <Card>
+            <CardContent className="p-4">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-4">
+                  <span className="text-sm font-medium text-gray-700">Semaine :</span>
+                  <Select
+                    value={selectedWeek.toString()}
+                    onChange={(e) => setSelectedWeek(parseInt(e.target.value))}
+                  >
+                    {Array.from({ length: 52 }, (_, i) => i + 1).map(week => (
+                      <option key={week} value={week}>
+                        Semaine {week}
+                      </option>
                     ))}
+                  </Select>
+                </div>
+                <div className="text-sm text-gray-600">
+                  {weekDates[0].toLocaleDateString('fr-FR')} - {weekDates[6].toLocaleDateString('fr-FR')}
                 </div>
               </div>
-            ))}
-            
-            {Object.keys(groupedEvents).length === 0 && (
-              <div className="bg-white rounded-xl shadow-sm p-8 border border-gray-100 text-center">
-                <p className="text-gray-500">Aucun événement trouvé pour cette période.</p>
+            </CardContent>
+          </Card>
+
+          {/* Emploi du temps */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* Vue hebdomadaire */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Vue hebdomadaire</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="overflow-x-auto">
+                  <table className="w-full">
+                    <thead>
+                      <tr className="border-b border-gray-200">
+                        <th className="text-left py-2 px-2 font-medium text-gray-700 w-16">Heure</th>
+                        {daysOfWeek.map((day, index) => (
+                          <th 
+                            key={day} 
+                            className={`text-center py-2 px-2 font-medium text-gray-700 ${
+                              weekDates[index]?.toDateString() === today ? 'bg-blue-50' : ''
+                            }`}
+                          >
+                            <div className="text-sm font-medium">{day}</div>
+                            <div className="text-xs text-gray-500">
+                              {weekDates[index]?.toLocaleDateString('fr-FR', { day: '2-digit', month: '2-digit' })}
+                            </div>
+                          </th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {timeSlots.map((time) => (
+                        <tr key={time} className="border-b border-gray-100">
+                          <td className="py-2 px-2 text-sm text-gray-600 font-medium">
+                            {formatTime(time)}
+                          </td>
+                          {daysOfWeek.map((day) => {
+                            const course = getCourseAtTime(day, time);
+                            return (
+                              <td key={day} className="py-2 px-2">
+                                {course ? (
+                                  <div className="p-2 bg-blue-50 rounded-lg border border-blue-200">
+                                    <div className="text-sm font-medium text-blue-900">
+                                      {course.name}
+                                    </div>
+                                    <div className="text-xs text-blue-700">
+                                      {course.schedule.room}
+                                    </div>
+                                    <div className="text-xs text-blue-600">
+                                      {formatTime(course.schedule.startTime)} - {formatTime(course.schedule.endTime)}
+                                    </div>
+                                  </div>
+                                ) : (
+                                  <div className="h-16"></div>
+                                )}
+                              </td>
+                            );
+                          })}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Vue journalière */}
+            <Card>
+              <CardHeader>
+                <CardTitle>Vue journalière - {selectedDay}</CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="space-y-4">
+                  {getCoursesForDay(selectedDay).length > 0 ? (
+                    getCoursesForDay(selectedDay).map((course) => (
+                      <div key={course.id} className="p-4 bg-blue-50 rounded-lg border border-blue-200">
+                        <div className="flex justify-between items-start mb-2">
+                          <h3 className="font-medium text-blue-900">{course.name}</h3>
+                          <Badge variant="default" className="bg-blue-100 text-blue-800">
+                            {course.subject}
+                          </Badge>
+                        </div>
+                        <div className="grid grid-cols-2 gap-4 text-sm">
+                          <div>
+                            <span className="text-blue-700 font-medium">Horaire :</span>
+                            <p className="text-blue-600">
+                              {formatTime(course.schedule.startTime)} - {formatTime(course.schedule.endTime)}
+                            </p>
+                          </div>
+                          <div>
+                            <span className="text-blue-700 font-medium">Salle :</span>
+                            <p className="text-blue-600">{course.schedule.room}</p>
+                          </div>
+                          <div>
+                            <span className="text-blue-700 font-medium">Classe :</span>
+                            <p className="text-blue-600">{course.className}</p>
+                          </div>
+                          <div>
+                            <span className="text-blue-700 font-medium">Élèves :</span>
+                            <p className="text-blue-600">{course.students.length} élèves</p>
+                          </div>
+                        </div>
+                        {course.description && (
+                          <div className="mt-3">
+                            <span className="text-blue-700 font-medium">Description :</span>
+                            <p className="text-blue-600 text-sm mt-1">{course.description}</p>
+                          </div>
+                        )}
+                      </div>
+                    ))
+                  ) : (
+                    <div className="text-center py-8">
+                      <p className="text-gray-500">Aucun cours programmé ce jour</p>
+                    </div>
+                  )}
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+
+          {/* Sélecteur de jour pour la vue journalière */}
+          <Card>
+            <CardHeader>
+              <CardTitle>Sélectionner un jour</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="flex gap-2">
+                {daysOfWeek.map((day) => (
+                                     <Button
+                     key={day}
+                     variant={selectedDay === day ? 'primary' : 'outline'}
+                     onClick={() => setSelectedDay(day)}
+                     className="flex-1"
+                   >
+                    {day}
+                  </Button>
+                ))}
               </div>
-            )}
+            </CardContent>
+          </Card>
+
+          {/* Statistiques */}
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+            <Card>
+              <CardContent className="p-6">
+                <div className="text-center">
+                  <div className="text-3xl font-bold text-blue-600">{courses.length}</div>
+                  <div className="text-sm text-gray-600">Total des cours</div>
+                </div>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="p-6">
+                <div className="text-center">
+                  <div className="text-3xl font-bold text-green-600">
+                    {courses.reduce((total, course) => total + course.students.length, 0)}
+                  </div>
+                  <div className="text-sm text-gray-600">Total des élèves</div>
+                </div>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="p-6">
+                <div className="text-center">
+                  <div className="text-3xl font-bold text-purple-600">
+                    {new Set(courses.map(course => course.subject)).size}
+                  </div>
+                  <div className="text-sm text-gray-600">Matières enseignées</div>
+                </div>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="p-6">
+                <div className="text-center">
+                  <div className="text-3xl font-bold text-orange-600">
+                    {new Set(courses.map(course => course.className)).size}
+                  </div>
+                  <div className="text-sm text-gray-600">Classes</div>
+                </div>
+              </CardContent>
+            </Card>
           </div>
         </div>
       </DashboardLayout>

@@ -1,14 +1,10 @@
 // Composants UI de base
 export { Button } from './Button';
+export { Card, CardHeader, CardTitle, CardContent } from './Card';
 export { Input } from './Input';
-export { 
-  Card, 
-  CardHeader, 
-  CardTitle, 
-  CardDescription, 
-  CardContent, 
-  CardFooter 
-} from './Card';
+export { Select } from './Select';
+export { Textarea } from './Textarea';
+export { Badge } from './Badge';
 
 // Types
 export type { ButtonProps } from './Button';

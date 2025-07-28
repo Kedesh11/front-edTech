@@ -31,6 +31,8 @@ export const sidebarConfig: SidebarConfig = {
     { label: 'Notes', href: '/student/grades' },
     { label: 'Formations', href: '/student/trainings' },
     { label: 'Annonces', href: '/student/announcements' },
+    { label: 'Groupes de travail', href: '/student/workgroups' },
+    { label: 'Assistants IA', href: '/student/ai-assistants' },
     { label: 'Emploi du temps', href: '/student/schedule' },
     { label: 'Statistiques', href: '/student/statistics' },
   ],
